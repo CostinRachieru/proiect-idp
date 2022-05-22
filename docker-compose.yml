@@ -1,0 +1,41 @@
+version: '3.8'
+services:
+  app:
+    image: anasimionescu/proiect-idp:version1
+    ports:
+      - 4200:4200
+    volumes:
+      - .:/app
+    links:
+      - db
+    networks:
+      - internal
+
+  db:
+    image: mongo:latest
+    hostname: test_mongodb
+    environment:
+      - MONGO_INITDB_DATABASE=meteo
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=pass
+    volumes:
+      - ./init-db.js:/docker-entrypoint-initdb.d/init-db.js:ro
+      - db-volume:/home/costintudi/Desktop/mongodb/data
+    ports:
+      - 27017:27017
+    networks:
+      - internal
+      - database-admin
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+    networks:
+      - database-admin
+volumes:
+  db-volume:
+networks:
+  internal:
+  database-admin:

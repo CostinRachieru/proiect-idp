@@ -1,0 +1,194 @@
+version: '3.8'
+services:
+  app:
+    image: anasimionescu/proiect-idp:version1
+    ports:
+      - 4200:4200
+    volumes:
+      - .:/app
+    environment:
+      NODE_ENV: development
+    deploy:
+      replicas: 2
+      placement:
+        max_replicas_per_node: 2
+      update_config:
+        parallelism: 2
+        order: start-first
+      rollback_config:
+        parallelism: 2
+        order: stop-first
+    networks:
+      - net6
+    #   - internal5
+    #   - logging5
+    #   - rmq5
+    depends_on:
+      - loki
+    logging:
+      driver: loki
+      options:
+        loki-url: http://host.docker.internal:3100/loki/api/v1/push
+        loki-external-labels: job=myjob,owner=ana,environment=development
+
+  db:
+    image: postgres:12
+    environment:
+      POSTGRES_DB: books
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    deploy:
+      placement:
+        constraints:
+          - "node.role==manager"
+    logging:
+      driver: loki
+      options:
+        loki-url: http://host.docker.internal:3100/loki/api/v1/push
+        loki-external-labels: job=myjob1,owner=costin,environment=development1
+    volumes:
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      - db-volume:/var/lib/postgresql/data
+    depends_on:
+      - loki
+    networks:
+      - net6
+    # networks:
+    #   - internal5
+    #   - database-admin5
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+    # networks:
+    #   - database-admin5
+    networks:
+      - net6
+    depends_on:
+      - db
+
+  visualizer:
+    image: dockersamples/visualizer
+    ports:
+      - 8081:8080
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    deploy:
+      placement:
+        constraints:
+          - "node.role==manager"
+    networks:
+      - net6
+
+  rabbitmq:
+    image: rabbitmq:management-alpine
+    ports:
+      - 5672:5672
+      - 15672:15672
+    # networks:
+    #   - rmq5
+    hostname: rabbitmq
+    networks:
+      - net6
+
+
+  loki:
+    container_name: loki
+    image: grafana/loki:2.3.0
+    user: root
+    volumes:
+      - ./configs/loki/loki.yml:/etc/config/loki.yml
+      # - ./configs/loki/wal:/wal
+    entrypoint:
+      - /usr/bin/loki
+      - -config.file=/etc/config/loki.yml
+    ports:
+      - 3100:3100
+    # networks:
+    #   - logging5
+    #   - visualizing5
+    networks:
+      - net6
+
+  grafana:
+    image: grafana/grafana
+    volumes:
+      - grafana-volume6:/var/lib/grafana
+    ports:
+      - 3000:3000
+    depends_on:
+      - loki
+    deploy:
+      placement:
+        constraints: [node.role == manager]
+    # networks:
+    #     - visualizing5
+    networks:
+      - net6
+        
+  prometheus:
+    image: prom/prometheus
+    user: root
+    volumes:
+      - ./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - 9090:9090
+    # networks:
+    #   - monitoring5
+    #   - visualizing5
+    networks:
+      - net6
+
+  # testapp:
+  #   image: mobylab/idp-laborator7-testapp
+  #   logging:
+  #     driver: loki
+  #     options:
+  #       loki-url: http://host.docker.internal:3100/loki/api/v1/push
+  #       loki-external-labels: job=myjob,owner=radu,environment=development
+  #   ports:
+  #     - 8000:8000
+  #     - 5000:5000
+  #   # networks:
+  #   #   - monitoring5
+  #   #   - logging5
+  #   depends_on:
+  #     - loki
+  #   networks:
+  #     - net6
+
+  kong:
+    image: kong:latest
+    volumes:
+      - ./configs/kong:/usr/local/kong/declarative #injectarea fisierului de configurare la calea specificata
+    environment:
+      KONG_DATABASE: 'off' #obligatoriu, daca se vrea modul DB-less
+      KONG_DECLARATIVE_CONFIG: /usr/local/kong/declarative/kong.yml #trebuie specificat unde anume se va gasi fisierul de configurare
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001, 0.0.0.0:8444 ssl
+    ports:
+      - 80:8000 #expunerea porturilor
+      - 8443:8443
+    deploy:
+      placement:
+        constraints: [node.role == manager] #constrangerea de rulare doar pe master, pentru a nu exista conflict la nivel de volume
+    networks:
+      - net6
+
+
+volumes:
+  db-volume:
+  grafana-volume6:
+networks:
+  net6:
+#   internal5:
+#   database-admin5:
+#   rmq5:
+#   logging5:
+#   visualizing5:
+#   monitoring5:

@@ -1,0 +1,46 @@
+_format_version: "2.1"
+
+services:
+  - name: stackdemo_app
+    url: http://app:4200
+    routes:
+      - name: stackdemo_app_route
+        paths: 
+          - /stackdemo_app_path
+  
+  - name: stackdemo_adminer
+    url: http://adminer:8080
+    routes:
+      - name: stackdemo_adminer_route
+        paths: 
+          - /stackdemo_adminer_path
+  
+  - name: stackdemo_grafana
+    url: http://grafana:3000
+    routes:
+      - name: stackdemo_grafana_route
+        paths: 
+          - /stackdemo_grafana_path
+  
+  - name: stackdemo_rabbitmq
+    url: http://rabbitmq:15672
+    routes:
+      - name: stackdemo_rabbitmq_route
+        paths: 
+          - /stackdemo_rabbitmq_path
+
+consumers:
+  - username: admin 
+
+# plugins:
+#   - name: key-auth
+#     service: stackdemo_app
+
+# keyauth_credentials:
+#   - consumer: admin
+#   - key: mobylab
+#   - hide_credentials: true
+
+# acls:
+#   - consumer: admin
+#     group: grupul-moby-lab
